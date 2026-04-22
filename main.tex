@@ -1,0 +1,445 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Projet  RO : "transports de produits chimiques" }
+\author{Jaber Tanouti \\ Rayane Rekik \\ Reda Atonane }
+\date{2025 - 2026} 
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+
+
+
+
+\section{Indices et ensembles}
+
+\begin{itemize}
+  \item $t \in T = \{1,2,3,4,5\}$ : années de l'horizon de planification.
+  \item $k \in K = \{1,2\}$ : types de camions :
+  \begin{itemize}
+    \item $k=1$ : camion type 1,
+    \item $k=2$ : camion type 2.
+  \end{itemize}
+  \item $i,j \in V = \{\mathrm{AN},\mathrm{LI},\mathrm{CH},\mathrm{GA},\mathrm{BR},\mathrm{HA}\}$ : villes de destination pour les acides :
+  \begin{itemize}
+    \item LI = Liège, AN = Anvers, CH = Charleroi, GA = Gand, BR = Bruxelles, HA = Hasselt.
+  \end{itemize}
+\end{itemize}
+
+\section{Paramètres (constantes)}
+
+\subsection{Données géographiques et temps}
+
+\begin{itemize}
+  \item $d_{i,j}$ : distance (km) entre la ville $i$ et la ville $j \in J$ :
+  \begin{align*}
+    d_{\mathrm{LI},\mathrm{AN}} &= 105, &
+    d_{\mathrm{LI},\mathrm{CH}} &= 100, &
+    d_{\mathrm{LI},\mathrm{GA}} &= 140, \\
+    d_{\mathrm{LI},\mathrm{BR}} &= 100, &
+    d_{\mathrm{LI},\mathrm{HA}} &= 60~.
+  \end{align*}
+  \item $d_{\mathrm{AN},\mathrm{LI}} = 105$ km : distance Anvers--Liège.
+  \item $v = 70$ km/h : vitesse moyenne des camions.
+  \item $t^{\text{stop}} = 1$ h : durée d'un arrêt de livraison.
+  \item $H^{\max}$ : nombre maximal d'heures de travail par camion et par an (par ex. $H^{\max} = 2\,000$ h/an, à justifier).
+  \item $\tau^{\text{change}} = 3$ jours ouvrables : durée d'immobilisation pour changement d'affectation d'un compartiment.
+\end{itemize}
+
+\subsection{Capacités physiques et contrainte légale}
+
+\begin{itemize}
+  \item Camion type 1 : un compartiment
+  \[
+    Q_1 = 16{,}5~\text{t}.
+  \]
+  \item Camion type 2 : deux compartiments
+  \[
+    Q_{2,16.5} = 16{,}5~\text{t} \quad\text{(grand compartiment)}, \qquad
+    Q_{2,5.5} = 5{,}5~\text{t} \quad\text{(petit compartiment)}.
+  \]
+  \item Contrainte l\'egale : quantité maximale d'un m\^eme produit par camion
+  \[
+    Q^{\max} = 16{,}5~\text{t}.
+  \]
+  \item Quantité minimale par livraison :
+  \[
+    \underline{q}^{\text{liv}} = 5~\text{t}.
+  \]
+\end{itemize}
+
+\subsection{Flotte initiale}
+
+\[
+  N_{1,0} = 4, \qquad N_{2,0} = 6.
+\]
+
+\subsection{Demandes annuelles}
+
+\paragraph{Bases (Anvers $\rightarrow$ Liège).}
+
+Pour tout $t \in T$ :
+\[
+  D^{B}_t = 30\,000 \quad \text{(t/an)}.
+\]
+
+\paragraph{Acides (Liège $\rightarrow$ autres villes).}
+
+Pour tout $t \in T$ :
+\begin{align*}
+  D^{A}_{\mathrm{AN},t} &= 9\,000, &
+  D^{A}_{\mathrm{CH},t} &= 12\,000, \\
+  D^{A}_{\mathrm{GA},t} &= 2\,000, &
+  D^{A}_{\mathrm{BR},t} &= 6\,200.
+\end{align*}
+
+Pour Hasselt :
+\[
+  D^{A}_{\mathrm{HA},1} = 350, \qquad
+  D^{A}_{\mathrm{HA},t} = 1\,300 \quad \text{pour } t=2,3,4,5.
+\]
+
+Total acide à transporter en année $t$ :
+\[
+  \text{TotalAcide}_t = \sum_{j \in J} D^{A}_{j,t}.
+\]
+
+\subsection{Capacités annuelles moyennes (niveau 1)}
+
+Ces paramètres intègrent la loi (16,5 t max/produit/camion), les 5 t minimum par livraison,
+les distances, la vitesse, $t^{\text{stop}}$, $H^{\max}$, et éventuellement
+$\tau^{\text{change}}$.
+
+\begin{itemize}
+  \item $K^{A,16.5}$ : tonnes d'acide/an livrables par un compartiment de 16{,}5 t.
+  \item $K^{A,5.5}$ : tonnes d'acide/an livrables par un compartiment de 5{,}5 t.
+  \item $K^{B,16.5}$ : tonnes de base/an livrables par un compartiment de 16{,}5 t.
+  \item $K^{B,5.5}$ : tonnes de base/an livrables par un compartiment de 5{,}5 t.
+\end{itemize}
+
+Ces valeurs sont calculées en amont à partir de tournées types.
+
+\subsection{Définition de la capacité annuelle $K^{A,16.5}$}
+
+On considère un compartiment de capacité $16{,}5$ t dédié au transport d'acide.
+
+\paragraph{1. Tournée type.}
+
+On définit une tournée type au départ de Liège :
+\[
+  \text{LI} \to j_1 \to j_2 \to \dots \to j_m \to \text{LI},
+\]
+où
+\[
+  1 \le m \le 3, \quad j_\ell \in J, \; \ell = 1,\dots,m,
+\]
+et $m$ est le nombre de villes desservies lors de la tournée.
+
+On note $q_\ell$ la quantité d'acide livrée à la ville $j_\ell$ (en tonnes).  
+Les contraintes de quantité sont :
+\begin{align}
+  q_\ell &\ge \underline{q}^{\text{liv}} \quad &&\forall \ell = 1,\dots,m, \label{eq:q_min}\\
+  \sum_{\ell=1}^{m} q_\ell &\le Q^{\max}. \label{eq:q_max}
+\end{align}
+
+\paragraph{2. Distance totale de la tournée.}
+
+La distance totale parcourue lors de la tournée est :
+\begin{equation}
+  D^{A,\text{tour}}
+  =
+  d_{\mathrm{LI},j_1}
+  + \sum_{\ell=1}^{m-1} d_{j_\ell, j_{\ell+1}}
+  + d_{j_m,\mathrm{LI}}.
+\end{equation}
+
+\paragraph{3. Temps de trajet et temps d'arrêt.}
+
+Le temps de trajet (sans les arrêts) est :
+\begin{equation}
+  T^{\text{trajet}} = \frac{D^{A,\text{tour}}}{v}.
+\end{equation}
+
+Le temps d'arrêt total (un arrêt par livraison) est :
+\begin{equation}
+  T^{\text{arrêts}} = m \cdot t^{\text{stop}}.
+\end{equation}
+
+\paragraph{4. Temps total par tournée.}
+
+Le temps total consommé par une tournée type est donc :
+\begin{equation}
+  T^{A,\text{tour}}
+  =
+  T^{\text{trajet}} + T^{\text{arrêts}}
+  =
+  \frac{D^{A,\text{tour}}}{v} + m \, t^{\text{stop}}.
+\end{equation}
+
+\paragraph{5. Temps annuel disponible.}
+
+On note $H^{\text{eff}}$ le temps annuel effectif (en heures/an) disponible pour ce compartiment :
+\begin{equation}
+  H^{\text{eff}} \le H^{\max},
+\end{equation}
+où $H^{\max}$ est le temps de travail maximal théorique (par exemple ajusté si l'on tient compte de jours d'immobilisation pour changement d'affectation).
+
+\paragraph{6. Nombre de tournées par an.}
+
+Le nombre maximal théorique de tournées de ce type que peut effectuer le compartiment est :
+\begin{equation}
+  N^{A,\text{tour/an}}
+  =
+  \frac{H^{\text{eff}}}{T^{A,\text{tour}}}
+  =
+  \frac{H^{\text{eff}}}{\frac{D^{A,\text{tour}}}{v} + m \, t^{\text{stop}}}.
+\end{equation}
+
+\paragraph{7. Quantité d'acide par tournée.}
+
+La quantité totale d'acide livrée par une tournée est :
+\begin{equation}
+  Q^{A,\text{tour}} = \sum_{\ell=1}^{m} q_\ell,
+\end{equation}
+
+
+\paragraph{8. Capacité annuelle $K^{A,16.5}$.}
+
+La capacité annuelle (en tonnes/an) d'un compartiment de 16{,}5 t dédié à l'acide est alors :
+\begin{equation}
+  K^{A,16.5}
+  =
+  Q^{A,\text{tour}} \times N^{A,\text{tour/an}}
+  =
+  Q^{A,\text{tour}} \cdot
+  \frac{H^{\text{eff}}}{\frac{D^{A,\text{tour}}}{v} + m \, t^{\text{stop}}}.
+\end{equation}
+
+
+\subsection{Coûts}
+
+\begin{itemize}
+  \item Coûts d'achat :
+  \[
+    C^{\text{achat}}_1 = 140\,000~\text{€}, \qquad
+    C^{\text{achat}}_2 = 200\,000~\text{€}.
+  \]
+  \item Coût d'entretien annuel (par camion) :
+  \[
+    C^{\text{entretien}} = 5\,000~\text{€}/\text{an}.
+  \]
+  \item Prix d'achat pour la revente :
+  \[
+    C_1 = 140\,000, \qquad C_2 = 200\,000.
+  \]
+  \item $\alpha$ : taux d'amortissement ($0 \le \alpha \le 1$).
+  \item Prix théorique de vente d'un camion de type $k$ d'âge $n$ ans :
+  \[
+    C^{\text{vente}}_{k,n} = \frac{C_k}{(1+\alpha)^n}.
+  \]
+  \item $\bar C^{\text{vente}}_{k,t}$ : prix moyen de vente d'un camion de type $k$ vendu en année $t$ (approximation de $C^{\text{vente}}_{k,n}$ avec un âge moyen).
+\end{itemize}
+
+\section{Variables de décision}
+
+\subsection{Flotte}
+
+Pour $k \in \{1,2\}$, $t \in T$ :
+\begin{itemize}
+  \item $N_{k,t} \in \mathbb{Z}_+$ : nombre de camions de type $k$ en service à l'année $t$.
+  \item $A_{k,t} \in \mathbb{Z}_+$ : nombre de camions de type $k$ achetés pendant l'année $t$.
+  \item $V_{k,t} \in \mathbb{Z}_+$ : nombre de camions de type $k$ vendus pendant l'année $t$.
+\end{itemize}
+
+\subsection{Affectation des camions type 1}
+
+Pour chaque année $t$ :
+\begin{itemize}
+  \item $X^{A}_{1,t} \in \mathbb{Z}_+$ : nombre de camions type 1 affectés aux acides.
+  \item $X^{B}_{1,t} \in \mathbb{Z}_+$ : nombre de camions type 1 affectés aux bases.
+\end{itemize}
+
+\subsection{Affectation des camions type 2 (configurations)}
+
+Pour chaque année $t$ :
+\begin{itemize}
+  \item $Y^{AB}_t \in \mathbb{Z}_+$ : type 2 avec grand compartiment acide (16{,}5 t) et petit compartiment base (5{,}5 t).
+  \item $Y^{BA}_t \in \mathbb{Z}_+$ : type 2 avec grand compartiment base (16{,}5 t) et petit compartiment acide (5{,}5 t).
+  \item $Y^{A0}_t \in \mathbb{Z}_+$ : type 2 avec grand compartiment acide, petit compartiment vide.
+  \item $Y^{B0}_t \in \mathbb{Z}_+$ : type 2 avec grand compartiment base, petit compartiment vide.
+\end{itemize}
+
+\section{Contraintes}
+
+\subsection{Évolution de la flotte}
+
+Pour $k \in \{1,2\}$ et $t = 1,\dots,5$ :
+\[
+  N_{k,t} = N_{k,t-1} + A_{k,t} - V_{k,t}.
+\]
+
+Conditions initiales :
+\[
+  N_{1,0} = 4, \qquad N_{2,0} = 6.
+\]
+
+\subsection{Cohérence affectation / flotte}
+
+\paragraph{Type 1.} Pour chaque année $t$ :
+\[
+  X^{A}_{1,t} + X^{B}_{1,t} = N_{1,t}.
+\]
+
+\paragraph{Type 2.} Pour chaque année $t$ :
+\[
+  Y^{AB}_t + Y^{BA}_t + Y^{A0}_t + Y^{B0}_t = N_{2,t}.
+\]
+
+\subsection{Capacité annuelle pour les acides}
+
+Capacité annuelle totale pour les acides en année $t$ :
+\[
+  \text{Cap}^A_t
+  =
+  K^{A,16.5}\, X^{A}_{1,t}
+  + K^{A,16.5}\, (Y^{AB}_t + Y^{A0}_t)
+  + K^{A,5.5}\, Y^{BA}_t.
+\]
+
+Contrainte de capacité acide (satisfaction de la demande) :
+\[
+  \text{TotalAcide}_t \;\le\; \text{Cap}^A_t
+  \qquad \forall t \in T.
+\]
+
+\subsection{Capacité annuelle pour les bases}
+
+Capacité annuelle totale pour les bases en année $t$ :
+\[
+  \text{Cap}^B_t
+  =
+  K^{B,16.5}\, X^{B}_{1,t}
+  + K^{B,16.5}\, (Y^{BA}_t + Y^{B0}_t)
+  + K^{B,5.5}\, Y^{AB}_t.
+\]
+
+Demande de base : $D^{B}_t = 30\,000$ t/an.  
+Contrainte de capacité base :
+\[
+  D^{B}_t \;\le\; \text{Cap}^B_t
+  \qquad \forall t \in T,
+\]
+c'est-à-dire
+\[
+  30\,000 \;\le\; \text{Cap}^B_t
+  \qquad \forall t \in T.
+\]
+
+\subsection{Intégralité et non-négativité}
+
+Pour tout $t \in T$ :
+\[
+  N_{k,t},\, A_{k,t},\, V_{k,t} \in \mathbb{Z}_+ \quad (k = 1,2),
+\]
+\[
+  X^{A}_{1,t},\, X^{B}_{1,t} \in \mathbb{Z}_+,
+\]
+\[
+  Y^{AB}_t,\, Y^{BA}_t,\, Y^{A0}_t,\, Y^{B0}_t \in \mathbb{Z}_+.
+\]
+
+\section{Fonction économique}
+
+On minimise le coût total sur les 5 années : achats + entretien $-$ recettes de vente.
+
+Paramètres :
+\[
+  C^{\text{achat}}_1 = 140\,000~\text{€}, \qquad
+  C^{\text{achat}}_2 = 200\,000~\text{€},
+\]
+\[
+  C^{\text{entretien}} = 5\,000~\text{€}/\text{an}.
+\]
+
+$\bar C^{\text{vente}}_{k,t}$ : prix moyen de vente d'un camion de type $k$ en année $t$.
+
+Variables concernées : $A_{k,t}$, $V_{k,t}$, $N_{k,t}$.
+
+Fonction objectif :
+\[
+  \min Z
+  =
+  \underbrace{\sum_{t=1}^{5} \sum_{k=1}^{2}
+    C^{\text{achat}}_k \, A_{k,t}}_{\text{coût d'achat}}
+  +
+  \underbrace{\sum_{t=1}^{5} \sum_{k=1}^{2}
+    C^{\text{entretien}} \, N_{k,t}}_{\text{coût d'entretien}}
+  -
+  \underbrace{\sum_{t=1}^{5} \sum_{k=1}^{2}
+    \bar C^{\text{vente}}_{k,t} \, V_{k,t}}_{\text{recettes de vente}}.
+\]
+
+\end{document}
+
+
+
+
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
