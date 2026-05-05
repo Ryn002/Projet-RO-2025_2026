@@ -63,13 +63,26 @@ Hypothèses tournées → Capacités K → PL flotte → Solution
 
 ## 2. Hypothèses sur les tournées (niveau opérationnel figé)
 
-> À compléter une fois les tournées-types choisies.
-
-- **Nombre de villes par tournée acide** : `m = ?` (ex. 2 ou 3 en moyenne)
-- **Tournée-type acide retenue** : ex. `LI → CH → BR → LI` (à justifier : représentativité des distances, quantités)
+- **Méthode retenue pour les acides** : construction journalière progressive. On commence avec 1 camion, on maximise la quantité livrée en 8 h, puis on ajoute un camion et on répète jusqu'à couvrir la demande journalière.
+- **Demande journalière de référence** : années 2 à 5, car Hasselt est alors à pleine demande. Avec 250 jours ouvrables par an :
+  - Anvers : 36 t/j
+  - Charleroi : 48 t/j
+  - Gand : 8 t/j
+  - Bruxelles : 24,8 t/j
+  - Hasselt : 5,2 t/j
+  - Total : 122 t/j
+- **Résultat opérationnel acide** : 5 camions de 16,5 t sont nécessaires pour couvrir les 122 t/j. Un camion livre au maximum 33 t/j, mais 4 camions ne suffisent pas car les petites demandes de Gand et Hasselt consomment du temps de tournée sans remplir entièrement les camions.
+- **Planning journalier acide retenu** :
+  - Camion 1 : `LI → CH → LI` (16,5 t), puis `LI → CH → LI` (16,5 t) ; temps 7,714 h.
+  - Camion 2 : `LI → CH → LI` (15 t), puis `LI → BR → LI` (16,3 t) ; temps 7,714 h.
+  - Camion 3 : `LI → AN → LI` (12,35 t), puis `LI → AN → LI` (12,35 t) ; temps 8 h.
+  - Camion 4 : `LI → AN → HA → LI` (11,3 t vers AN, 5,2 t vers HA) ; temps 5,071 h.
+  - Camion 5 : `LI → GA → BR → LI` (8 t vers GA, 8,5 t vers BR) ; temps 6 h.
+- **Nombre de villes par tournée acide** : variable selon la tournée, entre 1 et 2 villes dans le planning retenu.
+- **Tournée-type acide retenue pour le calcul de capacité** : le planning ci-dessus est utilisé comme tournée journalière représentative du régime permanent, plutôt qu'une seule tournée moyenne.
 - **Tournée base** : `LI → AN → LI` (trajet unique, pas de choix — camions basés à Liège).
 - **Retour à vide** : les camions rentrent vides, pas de couplage acide/base aller-retour (décision §10, justifiée par le temps de transition de 3 j et l'affectation fixe par année).
-- **Quantité par livraison** : chaque compartiment est rempli au maximum légal (16,5 t pour le grand), minimum légal 5 t par livraison.
+- **Quantité par livraison** : chaque tournée transporte au plus 16,5 t d'acide. Quand la demande restante d'une ville est inférieure à la capacité, on ne force pas le remplissage complet ; on garde en revanche une livraison physique minimale de 5 t par ville servie.
 - **Contrainte légale** : max 16,5 t d'**un même produit** par camion. Un type 2 ne peut donc pas charger de l'acide dans ses deux compartiments simultanément (16,5+5,5 = 22 t → illégal). Le petit compartiment (5,5 t) d'un type 2 affecté à l'acide reste vide sauf s'il est basculé vers la base (changement d'affectation = 3 j d'immobilisation).
 - **Distances (km)** (énoncé) :
 

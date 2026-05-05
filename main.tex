@@ -225,6 +225,130 @@ La capacité annuelle (en tonnes/an) d'un compartiment de 16{,}5 t dédié à l'
   \frac{H^{\text{eff}}}{\frac{D^{A,\text{tour}}}{v} + m \, t^{\text{stop}}}.
 \end{equation}
 
+\subsection{Construction journalière progressive d'une flotte acide}
+
+Pour dimensionner concrètement la flotte affectée aux acides, on commence par un
+raisonnement journalier. On retient les demandes moyennes journalières des années
+2 à 5, car elles correspondent au cas le plus contraignant avec Hasselt à pleine
+demande. Avec $250$ jours ouvrables par an, on obtient :
+\[
+\begin{array}{c|ccccc|c}
+\text{Ville} & \mathrm{AN} & \mathrm{CH} & \mathrm{GA} & \mathrm{BR} & \mathrm{HA} & \text{Total} \\
+\hline
+\text{Demande journalière (t/j)} & 36 & 48 & 8 & 24{,}8 & 5{,}2 & 122
+\end{array}
+\]
+
+Un camion dispose de $8$ h par jour. Une tournée part de Liège, dessert une ou
+plusieurs villes, puis revient à Liège. Le temps consommé par une tournée $r$ est :
+\[
+  T_r = \frac{D_r}{70} + n_r,
+\]
+où $D_r$ est la distance totale de la tournée et $n_r$ le nombre de villes livrées
+pendant cette tournée. Chaque tournée transporte au maximum $16{,}5$ t d'acide.
+
+\paragraph{Cas d'un seul camion.}
+La tournée aller-retour la plus courte est Liège--Hasselt--Liège :
+\[
+  T_{\mathrm{LI-HA-LI}} = \frac{120}{70} + 1 = 2{,}714 \text{ h}.
+\]
+Trois tournées même très courtes nécessiteraient $3 \times 2{,}714 = 8{,}142$ h,
+donc un camion ne peut faire au maximum que deux tournées complètes par jour.
+La quantité journalière maximale d'un camion est donc :
+\[
+  2 \times 16{,}5 = 33 \text{ t/j}.
+\]
+Un trajet optimal possible, en privilégiant les villes à forte demande, est :
+\[
+\mathrm{LI}\to\mathrm{BR}\to\mathrm{LI}
+\quad\text{puis}\quad
+\mathrm{LI}\to\mathrm{CH}\to\mathrm{LI}.
+\]
+Son temps total vaut :
+\[
+  \left(\frac{200}{70}+1\right) + \left(\frac{200}{70}+1\right)
+  = 7{,}714 \text{ h},
+\]
+et il livre $33$ t. Un seul camion ne suffit donc pas pour couvrir les
+$122$ t/j demandées.
+
+\paragraph{Ajout progressif de camions.}
+On ajoute ensuite les camions un par un. Pour chaque nombre de camions, on cherche
+la quantité maximale livrable dans la journée, sous les contraintes suivantes :
+\[
+  \sum_{r \in R_c} T_r \le 8 \quad \forall c,
+  \qquad
+  \sum_{j \in r} q_{r,j} \le 16{,}5 \quad \forall r,
+  \qquad
+  0 \le \sum_r q_{r,j} \le D^{\text{jour}}_j.
+\]
+
+\[
+\begin{array}{c|c|c|l}
+\text{Nombre de camions} & \text{Quantité max. livrée (t/j)}
+& \text{Demande restante (t/j)} & \text{Conclusion} \\
+\hline
+1 & 33 & 89 & \text{insuffisant} \\
+2 & 66 & 56 & \text{insuffisant} \\
+3 & 97{,}5 & 24{,}5 & \text{insuffisant} \\
+4 & 114 & 8 & \text{encore insuffisant} \\
+5 & 122 & 0 & \text{demande journalière couverte}
+\end{array}
+\]
+
+Le seuil théorique basé uniquement sur la capacité serait
+$\lceil 122/33\rceil = 4$ camions. Cependant, quatre camions ne suffisent pas en
+pratique, car les demandes doivent être livrées dans des villes différentes et
+certaines petites demandes, comme Gand et Hasselt, consomment du temps de tournée
+sans remplir entièrement un camion.
+
+\paragraph{Planning journalier retenu avec cinq camions.}
+Le plan suivant couvre exactement la demande journalière moyenne des années 2 à 5.
+Il respecte la limite de $8$ h par camion et garde chaque livraison physique au
+moins égale à $5$ t.
+
+\[
+\begin{array}{c|l|c|c}
+\text{Camion} & \text{Tournées et quantités livrées} & \text{Temps (h)} & \text{Total (t)} \\
+\hline
+1 &
+\mathrm{LI}\!-\!\mathrm{CH}\!-\!\mathrm{LI}:16{,}5
+\quad ; \quad
+\mathrm{LI}\!-\!\mathrm{CH}\!-\!\mathrm{LI}:16{,}5
+& 7{,}714 & 33 \\
+2 &
+\mathrm{LI}\!-\!\mathrm{CH}\!-\!\mathrm{LI}:15
+\quad ; \quad
+\mathrm{LI}\!-\!\mathrm{BR}\!-\!\mathrm{LI}:16{,}3
+& 7{,}714 & 31{,}3 \\
+3 &
+\mathrm{LI}\!-\!\mathrm{AN}\!-\!\mathrm{LI}:12{,}35
+\quad ; \quad
+\mathrm{LI}\!-\!\mathrm{AN}\!-\!\mathrm{LI}:12{,}35
+& 8{,}000 & 24{,}7 \\
+4 &
+\mathrm{LI}\!-\!\mathrm{AN}\!-\!\mathrm{HA}\!-\!\mathrm{LI}:
+\mathrm{AN}\ 11{,}3,\ \mathrm{HA}\ 5{,}2
+& 5{,}071 & 16{,}5 \\
+5 &
+\mathrm{LI}\!-\!\mathrm{GA}\!-\!\mathrm{BR}\!-\!\mathrm{LI}:
+\mathrm{GA}\ 8,\ \mathrm{BR}\ 8{,}5
+& 6{,}000 & 16{,}5
+\end{array}
+\]
+
+La vérification par ville est :
+\[
+\begin{array}{c|ccccc|c}
+\text{Ville} & \mathrm{AN} & \mathrm{CH} & \mathrm{GA} & \mathrm{BR} & \mathrm{HA} & \text{Total} \\
+\hline
+\text{Livré (t/j)} & 36 & 48 & 8 & 24{,}8 & 5{,}2 & 122
+\end{array}
+\]
+
+On retient donc, pour le dimensionnement journalier des acides au régime permanent,
+un besoin minimal de cinq camions de capacité $16{,}5$ t affectés aux acides.
+
 
 \subsection{Coûts}
 
@@ -390,56 +514,3 @@ Fonction objectif :
 \]
 
 \end{document}
-
-
-
-
-
-
-\end{document}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
