@@ -6,6 +6,10 @@ Comparer trois organisations journalieres du transport des bases, produites a
 Anvers et livrees a Liege, en tenant compte du transport d'acide au depart de
 Liege.
 
+Ce document est la base operationnelle du modele principal. Les scenarios 1 et 2
+sont conserves comme comparaisons ; le **scenario 3 hybride (S3)** est le
+scenario retenu pour parametrer le modele strategique de flotte.
+
 Demande journaliere de reference, en regime permanent :
 
 | Produit | Demande |
@@ -79,6 +83,7 @@ et :
 |---|---:|
 | Vitesse | 70 km/h |
 | Temps de travail | 8 h/j/camion |
+| Jours ouvrables | 250 jours/an |
 | Livraison acide | 1 h/arret |
 | Chargement base a Anvers | 0,5 h |
 | Dechargement base a Liege | 1 h |
@@ -87,6 +92,11 @@ et :
 | Quantite minimale livree | 5 t |
 | Distance LI-AN-LI | 210 km |
 | Distance LI-AN-HA-LI | 215 km |
+
+Les tournees du scenario principal ne rajoutent pas explicitement 0,5 h de
+rechargement a Liege entre deux tournees d'acide. Cette simplification est
+assumee dans le modele principal ; la variante avec rechargement explicite est
+traitee separement comme analyse de sensibilite.
 
 ## Equations communes
 
@@ -127,7 +137,10 @@ Contraintes de capacite :
 0 \le q^B_r \le 16,5
 ```
 
-Pour un camion type 2, le couplage autorise est :
+Dans ce test, le couplage acide/base n'est pas libre sur tout le reseau. Il est
+limite aux trajets impliquant Anvers et exploite les deux compartiments des
+camions type 2. Pour un camion type 2 utilise dans ce cadre, le couplage autorise
+est :
 
 ```math
 q^A_r \le 16,5
@@ -269,7 +282,7 @@ Bilan :
 
 ---
 
-## Scenario 3 - Variante hybride
+## Scenario 3 - Hybride retenu pour le modele principal
 
 On garde une tournee mixte Anvers-Hasselt, puis on livre le reste de l'acide vers
 Anvers par rotations directes type 2.
@@ -359,7 +372,8 @@ Distance moyenne journaliere corrigee :
 | 3-5 | 250 | 3185 km/j | 2880 km/j | 2765 km/j |
 
 Le classement en distance ne change pas : le scenario 3 reste le plus court
-chaque annee.
+chaque annee. C'est donc ce scenario qui est retenu comme reference
+operationnelle dans le modele principal.
 
 ---
 
@@ -381,18 +395,18 @@ C_1 = 140000
 C_2 = 200000
 ```
 
-Hypothese de revente en annee 1 :
+Hypothese de revente moyenne en fin d'annee 1 :
 
 ```math
 \alpha = 0,25
 \qquad
-n = 1
+t = 1
 ```
 
 ```math
-V_1 = \frac{140000}{1,25} = 112000
+\bar C^{vente}_{1,1} = \frac{140000}{1,25} = 112000
 \qquad
-V_2 = \frac{200000}{1,25} = 160000
+\bar C^{vente}_{2,1} = \frac{200000}{1,25} = 160000
 ```
 
 Formule de cout net :
@@ -434,7 +448,7 @@ R_{k,s} = \max(0, N^0_k - N_{k,s})
 | Base couverte | 120,5 | 120,5 | 120 | S3 |
 | Cout net changement | 360000 | 200000 | 140000 | S3 |
 
-## Justification d'optimalite du scenario 3 en distance
+## Justification d'optimalite du scenario 3 en distance dans le cadre du test
 
 Une borne inferieure sur le nombre de rotations transportant des bases est :
 
@@ -492,8 +506,8 @@ Le scenario 3 atteint cette borne :
 D_3 = 2765 \text{ km/j}
 ```
 
-Il est donc optimal en distance dans le cadre des hypotheses retenues pour ce
-test :
+Il est donc optimal en distance dans le cadre restreint des hypotheses retenues
+pour ce test, et non dans un probleme de tournees general :
 
 - une seule rotation base par camion et par jour ;
 - demandes journalieres moyennes pour AN, CH, GA et BR ;
@@ -501,6 +515,21 @@ test :
 - quantite minimale de 5 t par livraison ;
 - tournees construites avec les distances de l'enonce ;
 - couplage uniquement via les compartiments du type 2.
+
+## Sensibilite et limites
+
+Les points suivants ne modifient pas le scenario principal, mais doivent etre
+signales dans le rapport :
+
+- le rechargement a Liege entre deux tournees d'acide n'est pas ajoute
+  explicitement dans S3 ;
+- Hasselt est traite par nombre annuel de livraisons, ce qui moyenne la demande
+  au sein de chaque annee ;
+- le couplage acide/base reste limite a Anvers ;
+- l'optimalite en distance vaut seulement pour les tournees candidates et les
+  conventions de ce document ;
+- les scenarios 1 et 2 restent des alternatives comparees, pas la base du modele
+  principal.
 
 ## Choix selon le critere
 
@@ -514,7 +543,7 @@ test :
 
 ## Conclusion
 
-Le scenario 3 est le meilleur compromis et le scenario recommande pour le PL de
+Le scenario 3 est le meilleur compromis et le scenario retenu pour le PL de
 flotte. Il est a egalite avec le scenario 2 sur le nombre total de camions, mais
 il minimise la distance parcourue et le cout net de changement de flotte.
 

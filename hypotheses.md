@@ -1,287 +1,399 @@
-# Hypothèses de modélisation — Projet RO "Transport de produits chimiques"
+# Hypothèses de modélisation finales — Projet RO "Transport de produits chimiques"
 
-Ce document recense **toutes les hypothèses** prises pour passer de l'énoncé à un PL résoluble. Chaque hypothèse doit être justifiée dans le rapport final.
+Ce document fixe les hypothèses retenues pour le modèle principal du projet. Il
+sert de référence commune pour le rapport, les tests de scénarios et la
+formulation PL/PLNE.
+
+Le problème réel combine deux niveaux :
+
+- un niveau opérationnel : choix des tournées, ordre des villes, chargements ;
+- un niveau stratégique : achats, ventes et affectations de camions sur 5 ans.
+
+Résoudre simultanément ces deux niveaux reviendrait à coupler un problème de
+tournées de véhicules avec un problème de gestion de flotte. Ce serait trop lourd
+pour le cadre du projet. Le choix final est donc un découplage en deux étapes :
+
+```text
+Tournées-types fixées -> capacités journalières/annuelles -> PL/PLNE de flotte
+```
+
+L'étape opérationnelle est traitée par scénarios et calculs manuels. L'étape
+stratégique utilise ces résultats comme paramètres d'entrée.
 
 ---
 
-## 0. Feuille de route : pourquoi deux grandes étapes, et quoi décider avant de calculer
+## 1. Hypothèses finales retenues pour le modèle principal
 
-### Pourquoi deux étapes ?
-
-Le problème brut est un **problème à deux niveaux couplés** :
-
-- **Niveau opérationnel** : comment organiser les tournées de livraison (qui passe par quelles villes, dans quel ordre, avec quel chargement) ?
-- **Niveau stratégique** : combien de camions de chaque type acheter, affecter et revendre chaque année pour minimiser le coût total sur 5 ans ?
-
-Ces deux niveaux sont liés : la taille de flotte nécessaire dépend de la capacité effective des camions, qui dépend elle-même des tournées effectuées. Résoudre les deux simultanément mènerait à un **problème de tournées de véhicules (VRP)** combiné à un problème de gestion de flotte — NP-difficile, hors de portée d'un PL standard.
-
-**Stratégie adoptée — découplage en deux étapes séquentielles :**
-
-```
-Étape 1 — Opérationnel (figé à la main)
-  Choisir des tournées-types représentatives
-  → Calculer la capacité annuelle K d'un compartiment (t/an)
-
-Étape 2 — Stratégique (optimisé par PL)
-  Données d'entrée : demandes annuelles + capacités K
-  → Trouver le plan d'achat/vente/affectation optimal sur 5 ans
-```
-
-L'étape 1 est résolue **par hypothèses et calculs manuels** ; l'étape 2 est le **PL à résoudre**. Ce découplage est justifiable car les tournées sont peu variables (géographie fixe, clients fixes) et l'enjeu principal est la composition de la flotte.
+| Sujet | Choix retenu |
+|---|---|
+| Horizon | 5 années, `T = {1,2,3,4,5}` |
+| Scénario opérationnel | Scénario hybride S3, issu de `tests_bases_couplage_anvers.md` |
+| Jours ouvrables | 250 jours/an |
+| Temps de travail | 8 h/jour/camion, soit `H^max = 2000 h/an` |
+| Rechargement à Liège | Non ajouté explicitement dans S3 principal |
+| Couplage acide/base | Couplage partiel via Anvers uniquement, avec camions type 2 |
+| Changement d'affectation | Affectation fixe à l'année ; pas de changement en cours d'année |
+| Hasselt | 350 t en année 1, 825 t en année 2, 1300 t/an en années 3 à 5 |
+| Flotte initiale | 4 camions type 1, 6 camions type 2 |
+| Âge initial | Camions supposés neufs au début de l'horizon, âge 0 |
+| Amortissement principal | `α = 0,25` |
+| Revente | Prix moyen de revente par type et par année ; pas de suivi par cohortes |
+| Convention de vente | Vente en fin d'année : camion disponible pendant l'année t, retiré en t+1 |
+| Variabilité | Demandes déterministes, pas de saisonnalité fine |
+| Coûts de base | Achat, entretien, revente ; pas de coût kilométrique dans le modèle principal |
 
 ---
 
-### Ce qu'il faut impérativement fixer avant de lancer le PL
+## 2. Scénario opérationnel principal : S3 hybride
 
-Le PL de l'étape 2 ne peut pas être écrit tant que les paramètres suivants ne sont pas arrêtés :
+Le scénario principal retenu est le **scénario hybride S3**. Il devient le
+scénario de référence pour paramétrer le modèle stratégique.
 
-| # | Paramètre | Pourquoi c'est bloquant | Statut |
-|---|-----------|------------------------|--------|
-| 1 | **Tournées acide/base retenues** | Déterminent les capacités journalières, les distances et les besoins de flotte | ✅ Scénario hybride S3 retenu provisoirement (`tests_bases_couplage_anvers.md`) |
-| 2 | **Taux d'amortissement α** | Paramètre fixe pour calculer la recette de revente `C/(1+α)^n` (ce qu'on optimise c'est *quand* vendre, pas α) | ✅ α = 0,25 par hypothèse + sensibilité |
-| 3 | **Vente l'année d'achat autorisée ?** | Détermine si la variable `V_{k,t,t}` existe → structure des contraintes de flotte | ✅ Oui, autorisé |
-| 4 | **Couplage aller-retour acide/base ?** | Influence directement le nombre de camions et les distances | ✅ Couplage partiel via Anvers, scénario S3 (§2) |
-| 5 | **Âge initial de la flotte** | Détermine le prix de revente des camions initiaux | ✅ Tous neufs (âge 0) |
-| 6 | **Demande Hasselt** | Paramètre des contraintes de couverture | ✅ Traitement annuel par livraisons minimales de 5 t |
-| 7 | **Convention vente** | Détermine la disponibilité et le moment de la recette | ✅ Fin d'année t |
-
----
-
-## 1. Approche générale
-
-**Problème à deux niveaux** :
-- Niveau stratégique (flotte) : achats, ventes, affectations sur 5 ans.
-- Niveau opérationnel (transport) : quelle tournée, qui livre quoi à qui.
-
-**Choix de découplage** : on **fige le transport** par des hypothèses de tournées-types, on calcule les capacités annuelles `K` d'un compartiment, puis on **optimise uniquement la flotte** via un PL.
-
-```
-Hypothèses tournées → Capacités K → PL flotte → Solution
-```
-
----
-
-## 2. Hypothèses sur les tournées (niveau opérationnel figé)
-
-Les hypothèses opérationnelles principales viennent du fichier
-`tests_bases_couplage_anvers.md`. Ce fichier compare trois organisations
-journalières combinant acides et bases, puis recommande le scénario hybride S3.
-
-### 2.1 Convention journalière
-
-- **Jours ouvrables** : 250 jours/an.
-- **Temps de travail principal** : 8 h/jour/camion dans le test couplé.
-- **Vitesse moyenne** : 70 km/h.
-- **Arrêt de livraison acide** : 1 h par ville livrée.
-- **Chargement de base à Anvers** : 0,5 h.
-- **Déchargement de base à Liège** : 1 h.
-- **Quantité minimale par livraison** : 5 t.
-
-Demande journalière de référence en régime permanent :
-
-| Produit / ville | Quantité |
-|---|---:|
-| Base AN → LI | 120 t/j |
-| Acide AN | 36 t/j |
-| Acide CH | 48 t/j |
-| Acide GA | 8 t/j |
-| Acide BR | 24,8 t/j |
-| Acide HA, années 3-5 | 5,2 t/j |
-| **Total acide régime permanent** | **122 t/j** |
-
-### 2.2 Couplage acide/base par Anvers
-
-Le couplage retenu exploite les camions de type 2 :
-
-- un compartiment transporte de l'acide de Liège vers Anvers ;
-- l'autre compartiment ramène de la base d'Anvers vers Liège.
-
-Le scénario recommandé dans `tests_bases_couplage_anvers.md` est le **scénario 3
-hybride** :
-
-| Bloc | Tournées | Type | Acide | Base | Distance |
-|---|---|---|---:|---:|---:|
-| CH | 2 × LI-CH-LI | T1 | 33 t | 0 | 400 km |
-| CH/BR | LI-CH-LI + LI-BR-LI | T1 | 31,3 t | 0 | 400 km |
-| GA/BR | LI-GA-BR-LI | T1 | 16,5 t | 0 | 280 km |
-| AN/HA | LI-AN-HA-LI | T2 | 16,2 t | 5,5 t | 215 km |
-| AN direct | 5 × LI-AN-LI | T2 | 25 t | 82,5 t | 1050 km |
-| Base restante | 2 × LI-AN-LI | T1 | 0 | 32 t | 420 km |
-| **Total** |  |  | **122 t** | **120 t** | **2765 km/j** |
-
-Bilan de flotte journalier du scénario S3 :
-
-| Type 1 | Type 2 | Total camions | Base couverte | Distance |
-|---:|---:|---:|---:|---:|
-| 5 | 6 | 11 | 120 t/j | 2765 km/j |
-
-Ce scénario est retenu provisoirement car il minimise la distance et le coût net
-de changement de flotte parmi les trois scénarios testés :
+Il est retenu car, parmi les trois scénarios testés, il est le meilleur compromis
+sur les critères disponibles :
 
 | Scénario | Type 1 | Type 2 | Total | Distance | Coût net de changement |
 |---|---:|---:|---:|---:|---:|
 | S1 : garder Anvers dans les tournées acide | 10 | 3 | 13 | 3185 km/j | 360000 € |
 | S2 : retirer Anvers des tournées acide | 4 | 7 | 11 | 2880 km/j | 200000 € |
-| S3 : hybride | 5 | 6 | 11 | 2765 km/j | 140000 € |
+| **S3 : hybride retenu** | **5** | **6** | **11** | **2765 km/j** | **140000 €** |
 
-### 2.3 Traitement de Hasselt dans les tournées
+Le scénario S3 combine :
 
-Hasselt n'est pas traité comme une livraison journalière constante en années 1
-et 2, car la livraison minimale est de 5 t.
+- des tournées acide classiques depuis Liège vers Charleroi, Bruxelles et Gand ;
+- une tournée mixte Liège-Anvers-Hasselt-Liège ;
+- des rotations directes Liège-Anvers-Liège pour coupler l'acide vers Anvers et
+  la base au retour ;
+- des rotations base restantes si nécessaire.
 
-On retient :
+Le bilan journalier de référence en régime permanent est :
+
+| Bloc | Tournées | Type | Acide | Base | Distance |
+|---|---|---|---:|---:|---:|
+| CH | 2 x LI-CH-LI | T1 | 33 t | 0 | 400 km |
+| CH/BR | LI-CH-LI + LI-BR-LI | T1 | 31,3 t | 0 | 400 km |
+| GA/BR | LI-GA-BR-LI | T1 | 16,5 t | 0 | 280 km |
+| AN/HA | LI-AN-HA-LI | T2 | 16,2 t | 5,5 t | 215 km |
+| AN direct | 5 x LI-AN-LI | T2 | 25 t | 82,5 t | 1050 km |
+| Base restante | 2 x LI-AN-LI | T1 | 0 | 32 t | 420 km |
+| **Total** |  |  | **122 t** | **120 t** | **2765 km/j** |
+
+S1 et S2 sont conservés uniquement comme scénarios comparatifs. Ils ne
+paramètrent pas le modèle principal.
+
+---
+
+## 3. Cadre journalier et capacité annuelle
+
+Le modèle principal utilise :
+
+- 250 jours ouvrables par an ;
+- 8 h de travail par jour et par camion ;
+- donc `H^max = 250 x 8 = 2000 h/an`.
+
+Une tournée acide part de Liège, dessert une ou plusieurs villes, puis revient à
+Liège. Son temps est calculé par :
+
+```text
+T_r = distance_r / 70 + nombre_arrets_acide
+```
+
+Pour les bases, les tests ajoutent le chargement à Anvers et le déchargement à
+Liège :
+
+```text
+T_r = distance_r / 70 + arrets_acide + 0,5 chargement_base + dechargement_base
+```
+
+La variante avec 9 h/jour et 0,5 h de rechargement à Liège entre deux tournées
+est conservée comme **analyse de sensibilité**. Elle ne remplace pas le cadre
+principal.
+
+---
+
+## 4. Rechargement à Liège
+
+Dans le scénario S3 principal, on ne rajoute pas explicitement 0,5 h de
+rechargement à Liège entre deux tournées d'acide effectuées par un même camion.
+
+C'est une hypothèse simplificatrice et légèrement optimiste. Elle revient à
+supposer que les opérations de préparation ou de rechargement sont intégrées dans
+l'organisation journalière sans créer de temps supplémentaire modélisé.
+
+Le fichier `archives/tests_acide_type1_9h_rechargement.md` conserve une variante
+où le rechargement est explicitement ajouté. Cette variante sert uniquement à
+tester la robustesse du dimensionnement.
+
+---
+
+## 5. Demandes annuelles
+
+### Bases
+
+La demande de base est constante :
+
+```text
+Base AN -> LI : 30000 t/an
+```
+
+Avec 250 jours ouvrables, cela correspond à :
+
+```text
+30000 / 250 = 120 t/j
+```
+
+### Acides hors Hasselt
+
+Les demandes annuelles suivantes sont constantes sur les cinq années :
+
+| Ville | Demande annuelle | Demande journalière |
+|---|---:|---:|
+| Anvers | 9000 t/an | 36 t/j |
+| Charleroi | 12000 t/an | 48 t/j |
+| Gand | 2000 t/an | 8 t/j |
+| Bruxelles | 6200 t/an | 24,8 t/j |
+
+### Hasselt
+
+Hasselt est traité séparément car l'énoncé indique qu'une nouvelle unité démarre
+après 18 mois.
+
+Le modèle principal retient :
+
+| Année | Demande HA | Justification |
+|---:|---:|---|
+| 1 | 350 t | Situation initiale |
+| 2 | 825 t | `0,5 x 350 + 0,5 x 1300` |
+| 3 à 5 | 1300 t/an | Nouvelle unité en régime plein |
+
+Comme la quantité minimale par livraison est de 5 t, Hasselt n'est pas livré
+tous les jours en années 1 et 2 :
 
 | Année | Demande HA | Nombre de livraisons | Quantité par livraison |
 |---:|---:|---:|---:|
 | 1 | 350 t | 70 | 5 t |
 | 2 | 825 t | 165 | 5 t |
-| 3-5 | 1300 t | 250 | 5,2 t |
+| 3 à 5 | 1300 t | 250 | 5,2 t |
 
-Dans les scénarios S1 et S3, Hasselt est intégré à une tournée passant déjà par
-Anvers. Le surcoût d'une livraison Hasselt est donc seulement :
+---
+
+## 6. Couplage acide/base
+
+Le modèle principal n'autorise pas un couplage général libre sur tout le réseau.
+
+Le couplage retenu est **partiel et limité à Anvers** :
+
+- certains camions type 2 livrent de l'acide de Liège vers Anvers ;
+- leur autre compartiment ramène de la base d'Anvers vers Liège ;
+- le couplage exploite les deux compartiments des camions type 2 ;
+- les autres trajets restent traités comme des tournées acide ou base classiques.
+
+Cette restriction garde le modèle maîtrisable et correspond au scénario S3. Elle
+évite de transformer le projet en problème complet de routage multi-produits.
+
+---
+
+## 7. Affectation des compartiments
+
+L'énoncé indique qu'un changement d'affectation d'un compartiment immobilise le
+camion pendant 3 jours ouvrables.
+
+Dans le modèle principal, on retient une affectation fixe à l'année :
+
+- un compartiment garde son affectation pendant toute l'année ;
+- il n'y a pas de changement d'affectation en cours d'année ;
+- les 3 jours d'immobilisation ne sont donc pas activés dans les tournées
+  journalières ;
+- l'affectation peut être revue entre deux années dans le modèle stratégique.
+
+C'est une simplification volontaire. Elle est défendable car le modèle cherche
+une stratégie annuelle de flotte, pas un planning opérationnel quotidien complet.
+
+---
+
+## 8. Flotte initiale et âge initial
+
+La flotte initiale est celle de l'énoncé :
 
 ```text
-d_AN,HA + d_HA,LI - d_AN,LI = 50 + 60 - 105 = 5 km
+N_1,0 = 4
+N_2,0 = 6
 ```
 
-Le scénario S3 reste le plus court après correction annuelle des distances :
+L'âge initial des camions est inconnu. Le modèle principal suppose que les camions
+initiaux sont neufs au début de l'horizon, donc d'âge 0.
 
-| Année | Scénario 1 | Scénario 2 | Scénario 3 |
-|---:|---:|---:|---:|
-| 1 | 3181,4 km/j | 2793,6 km/j | 2761,4 km/j |
-| 2 | 3183,3 km/j | 2839,2 km/j | 2763,3 km/j |
-| 3-5 | 3185 km/j | 2880 km/j | 2765 km/j |
-
-### 2.4 Contraintes de capacité et de produit
-
-- **Camion type 1** : un compartiment de 16,5 t.
-- **Camion type 2** : deux compartiments, 16,5 t et 5,5 t.
-- **Contrainte légale** : maximum 16,5 t d'un même produit par camion.
-- **Interprétation retenue** : un camion type 2 peut coupler deux produits
-  différents, par exemple 5,5 t d'acide vers Anvers et 16,5 t de base au retour,
-  car la limite porte sur un même produit.
-- **Quantité par livraison** : on ne force pas le remplissage complet lorsque la
-  demande restante d'une ville est inférieure à la capacité ; on respecte en
-  revanche le minimum de 5 t par arrêt.
-
-### 2.5 Points de doute à signaler
-
-- **Durée journalière** : le test couplé principal utilise 8 h/jour, tandis que
-  le test acide isolé `tests_acide_type1_9h_rechargement.md` étudie une variante
-  à 9 h/jour avec 0,5 h de rechargement entre deux tournées. Il faut choisir une
-  convention unique dans le rapport final ou présenter 9 h comme analyse de
-  sensibilité.
-- **Rechargement acide à Liège** : le test couplé ne pénalise pas explicitement
-  les doubles tournées acide par 0,5 h de rechargement à Liège. C'est une
-  hypothèse optimiste à mentionner si le scénario S3 est utilisé tel quel.
-- **Changement d'affectation des compartiments** : on suppose une affectation
-  stable à l'année. Les 3 jours de nettoyage ne sont donc pas déclenchés par les
-  tournées journalières.
-- **Âge réel des camions initiaux** : inconnu dans l'énoncé ; l'hypothèse d'âge
-  0 reste une simplification.
-- **Distances (km)** (énoncé) :
-
-|   | AN | CH | LI | GA | BR | HA |
-|---|----|----|----|----|----|----|
-| **AN** | — | 100 | 105 | 40 | 45 | 50 |
-| **CH** | | — | 100 | 100 | 60 | 80 |
-| **LI** | | | — | 140 | 100 | 60 |
-| **GA** | | | | — | 40 | 60 |
-| **BR** | | | | | — | 50 |
+Cette hypothèse permet de calculer une valeur moyenne de revente sans introduire
+un historique antérieur non fourni par l'énoncé.
 
 ---
 
-## 3. Capacité annuelle d'un camion
+## 9. Coûts, amortissement et revente
 
-- **Vitesse moyenne** : `v = 70 km/h` (énoncé).
-- **Temps d'arrêt par livraison** : `t^stop = 1 h` (énoncé).
-- **Heures de travail annuelles maximales** : `H^max = 2000 h/an`
-  → Justification : 250 jours ouvrables × 8 h/jour = 2000 h/an dans le scénario couplé principal.
-- **Variante testée** : 9 h/jour avec 0,5 h de rechargement entre deux tournées acide (`tests_acide_type1_9h_rechargement.md`). Cette variante n'est pas encore intégrée au scénario couplé S3.
-- **Immobilisation pour changement de compartiment** : `τ^change = 3 jours ouvrables` (énoncé).
-  → **Hypothèse simplificatrice** : on suppose **zéro changement d'affectation en cours d'année** (affectation fixe par année). L'immobilisation est donc ignorée.
+Les coûts explicitement donnés sont :
 
----
+| Élément | Valeur |
+|---|---:|
+| Achat camion type 1 | 140000 € |
+| Achat camion type 2 | 200000 € |
+| Entretien annuel par camion | 5000 €/an |
+| Revente | `C / (1 + α)^n` |
 
-## 4. Demandes annuelles
+Le modèle principal retient :
 
-- **Base** (AN → LI) : 30 000 t/an constant sur 5 ans.
-- **Acide** (depuis LI) — constant sur 5 ans pour AN, CH, GA, BR :
-  - Anvers : 9 000 t/an
-  - Charleroi : 12 000 t/an
-  - Gand : 2 000 t/an
-  - Bruxelles : 6 200 t/an
-- **Hasselt (cas spécial)** — "nouvelle unité dans 18 mois" :
-  - **Choix retenu** : année 1 = 350 t, année 2 = 825 t, années 3–5 = 1300 t.
-  - Justification : la nouvelle unité démarre dans 18 mois. L'année 2 est donc modélisée comme une demi-année à 350 t/an et une demi-année à 1300 t/an :
-    `D_HA,2 = 0,5 × 350 + 0,5 × 1300 = 825`.
-  - Comme la livraison minimale est de 5 t, Hasselt n'est pas forcément livré tous les jours :
-    année 1 = 70 livraisons de 5 t, année 2 = 165 livraisons de 5 t, années 3–5 = 250 livraisons de 5,2 t.
+```text
+α = 0,25
+```
 
----
+Cette valeur est utilisée comme hypothèse centrale. Une analyse de sensibilité
+est prévue avec :
 
-## 5. Flotte initiale
+```text
+α ∈ {0,15 ; 0,25 ; 0,35}
+```
 
-- Année 0 : `N_{1,0} = 4`, `N_{2,0} = 6` (énoncé).
-- **Âge des camions initiaux** : **choix retenu — tous neufs (âge = 0 au début de l'année 1)**.
-  - Justification : l'énoncé ne donne aucune information sur l'historique d'achat ; on modélise uniquement l'horizon de 5 ans.
+### Prix moyen de revente retenu dans le modèle principal
 
----
+Le modèle principal ne suit pas les cohortes détaillées d'achat et de vente.
+Cette simplification permet de garder un modèle de flotte agrégé, lisible et
+directement codable.
 
-## 6. Coûts et financier
+À la place, on utilise un prix moyen de revente par type et par année :
 
-- **Achat** : type 1 = 140 000 € ; type 2 = 200 000 € (énoncé).
-- **Entretien** : 5 000 €/an/camion (énoncé, quel que soit le type).
-- **Revente** : `C / (1+α)^n`
-  - **Taux d'amortissement α** : non donné par l'énoncé (indiqué seulement "entre 0 et 1").
-    - **Choix retenu : α = 0,25.**
-    - Justification : le standard fiscal belge pour les véhicules utilitaires est 20 %/an (durée usuelle 5 ans, amortissement linéaire — SPF Finances / [myfid.be](https://www.myfid.be/ressources/fiscalite/amortissement/)). Dans la formule exponentielle `C/(1+α)^n`, cela correspond à α = r/(1−r) = 0,20/0,80 = **0,25**. Un camion de 140 000 € vaut ainsi ~46 000 € après 5 ans.
-    - Une analyse de sensibilité sur α ∈ {0,15 ; 0,25 ; 0,35} sera menée.
-  - **n = âge du camion** à la revente → nécessite de tracker les cohortes (choix A).
-- **Actualisation des flux** : aucune (pas de taux d'actualisation inter-annuel). Justification : horizon court (5 ans), pas mentionné dans l'énoncé.
+```text
+\bar C^{vente}_{k,t} = C_k / (1 + α)^t
+```
 
----
+Dans cette formule, `t` est interprété comme l'âge moyen du camion vendu en fin
+d'année `t`. Cette convention est cohérente avec l'hypothèse selon laquelle les
+camions initiaux sont neufs au début de l'horizon et les ventes sont réalisées en
+fin d'année.
 
-## 7. Suivi des cohortes de camions (choix A)
+Avec `α = 0,25`, les prix moyens de revente utilisés dans le modèle principal
+sont :
 
-Pour calculer correctement la recette de revente `C/(1+α)^n`, on suit les **générations d'achat** :
+| Année de vente `t` | Revente type 1 | Revente type 2 |
+|---:|---:|---:|
+| 1 | 112000 € | 160000 € |
+| 2 | 89600 € | 128000 € |
+| 3 | 71680 € | 102400 € |
+| 4 | 57344 € | 81920 € |
+| 5 | 45875,20 € | 65536 € |
 
-- `A_{k,s}` : camions de type k achetés en année s.
-- `V_{k,s,t}` : camions de type k, achetés en s, vendus en t (âge = t − s).
-- Flotte initiale traitée comme une cohorte `s = 0` avec âge initial fixé par hypothèse §5.
+Ces valeurs proviennent de :
 
----
+```text
+\bar C^{vente}_{1,t} = 140000 / 1,25^t
+```
 
-## 8. Conventions temporelles
+```text
+\bar C^{vente}_{2,t} = 200000 / 1,25^t
+```
 
-- Horizon : `T = {1, 2, 3, 4, 5}`.
-- Année 1 = première année à compter du début du projet.
-- Toutes les décisions (achat, vente, affectation) sont prises **en début d'année**.
-- Un camion acheté en année t est disponible pour toute l'année t.
-- Un camion vendu en année t est **disponible pendant toute l'année t**, la recette de revente est perçue en **fin d'année t**, et il n'est plus disponible en t+1.
+Cette approximation garde une fonction objectif simple :
 
----
+```text
+achats + entretien - recettes de revente moyennes
+```
 
-## 9. Simplifications qu'on assume explicitement
+### Extension possible : suivi détaillé par cohortes
 
-- **Pas de VRP** : les tournées sont figées, pas de routage optimisé.
-- **Couplage limité** : le couplage acide/base est testé uniquement via Anvers et les compartiments du type 2.
-- **Pas de stochasticité** : demande déterministe.
-- **Pas de variabilité saisonnière** : demande constante au sein d'une année.
-- **Pas de panne / indisponibilité imprévue** : `H^max` suppose déjà une disponibilité lissée.
-- **Camion ≠ chauffeur** : on ignore les coûts/contraintes de personnel.
-- **Rechargement acide non intégré au scénario S3** : contrairement au test acide isolé à 9 h, le scénario couplé S3 ne rajoute pas explicitement 0,5 h de rechargement entre deux tournées acide.
+Le suivi détaillé par cohortes est conservé comme extension possible, mais il
+n'est pas retenu dans le modèle principal.
 
 ---
 
-## 10. Questions ouvertes (à trancher avec le groupe)
+## 10. Convention temporelle des décisions
 
-- [x] Âge initial de la flotte → tous neufs (§5)
-- [x] Modèle Hasselt → traitement annuel avec minimum 5 t/livraison (§4)
-- [x] Convention vente → fin d'année (§8)
-- [x] Valeur de `α` → 0,25 (standard fiscal belge 20 %/an, §6)
-- [x] Tournées acide/base → scénario hybride S3 retenu provisoirement (§2)
-- [x] Vente l'année d'achat → autorisée (§8)
-- [x] Couplage aller-retour → couplage partiel par Anvers avec type 2 (§2)
-- [ ] Décider si le rapport final garde 8 h/jour comme scénario principal ou passe à 9 h/jour avec rechargement.
-- [ ] Décider si le rechargement acide à Liège doit être ajouté au scénario couplé S3.
+Les conventions temporelles finales sont :
+
+- horizon : années `1` à `5` ;
+- les achats de l'année `t` sont disponibles pendant toute l'année `t` ;
+- les ventes de l'année `t` ont lieu en fin d'année ;
+- un camion vendu en année `t` reste utilisable pendant l'année `t` ;
+- il n'est plus disponible à partir de l'année `t+1` ;
+- la recette de revente est comptée en fin d'année `t`.
+
+Conséquence sur l'évolution de flotte :
+
+```text
+N_{k,t} = N_{k,t-1} - V_{k,t-1} + A_{k,t}
+```
+
+avec `V_{k,0} = 0`. La variable `N_{k,t}` représente donc les camions
+disponibles pendant l'année `t`.
+
+---
+
+## 11. Conséquences sur la modélisation
+
+Les choix précédents impliquent directement :
+
+| Choix | Conséquence dans le modèle |
+|---|---|
+| S3 retenu | Les capacités et besoins de flotte viennent du scénario hybride |
+| 8 h/jour, 250 jours | `H^max = 2000 h/an` |
+| Rechargement non explicite | Les temps S3 ne contiennent pas de pénalité de 0,5 h à Liège |
+| Hasselt annuel | Les contraintes de demande utilisent 350 / 825 / 1300 |
+| Couplage limité à Anvers | Pas de variable de couplage libre sur tous les arcs |
+| Affectation annuelle fixe | Pas de perte de 3 jours en cours d'année |
+| Revente simplifiée | Pas de variables de cohortes `V_{k,s,t}` dans le PL principal |
+| Vente en fin d'année | Les ventes réduisent la flotte disponible à partir de `t+1` |
+
+---
+
+## 12. Analyses de sensibilité prévues
+
+Les variantes suivantes ne font pas partie du modèle principal, mais peuvent être
+discutées dans le rapport :
+
+- `α ∈ {0,15 ; 0,25 ; 0,35}` pour tester l'effet du taux d'amortissement ;
+- variante à 9 h/jour avec 0,5 h de rechargement à Liège ;
+- comparaison des scénarios S1, S2 et S3 ;
+- effet d'un coût kilométrique si l'on décide d'enrichir la fonction objectif ;
+- effet d'une demande Hasselt non moyennée sur l'année.
+
+---
+
+## 13. Extensions possibles non retenues
+
+Les extensions suivantes sont volontairement exclues du modèle principal :
+
+- résolution d'un VRP complet ;
+- suivi détaillé des cohortes de camions achetés et vendus ;
+- coûts de chauffeurs ;
+- pannes et indisponibilités aléatoires ;
+- saisonnalité fine des demandes ;
+- coût kilométrique détaillé ;
+- affectations de compartiments changeant en cours d'année ;
+- couplage acide/base libre sur tous les trajets ;
+- modèle multi-objectif complet.
+
+Ces extensions peuvent être mentionnées comme limites ou pistes d'amélioration,
+mais elles ne doivent pas brouiller la formulation principale.
+
+---
+
+## 14. Points tranchés et points de vigilance
+
+### Points tranchés
+
+- S3 est le scénario opérationnel principal.
+- Le cadre principal reste 8 h/jour et 250 jours/an.
+- La variante 9 h/rechargement est une sensibilité.
+- Hasselt vaut 350 / 825 / 1300 sur les années 1 / 2 / 3-5.
+- Le couplage est partiel via Anvers uniquement.
+- L'affectation des compartiments est fixe à l'année.
+- `α = 0,25` est la valeur principale.
+- La revente est modélisée par prix moyen, sans cohortes.
+- Les ventes sont en fin d'année.
+
+### Points de vigilance à signaler dans le rapport
+
+- L'absence de rechargement explicite dans S3 rend le scénario légèrement
+  optimiste.
+- La demande est moyennée sur l'année, ce qui masque les éventuels pics
+  intra-annuels.
+- Le prix moyen de revente est une approximation.
+- Le scénario S3 est optimal en distance uniquement dans le cadre des hypothèses
+  de test, pas dans un VRP général.
