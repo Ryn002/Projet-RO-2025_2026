@@ -1,79 +1,118 @@
-# Cout explicite des scenarios
+# Couts des scenarios
 
 ## Objectif
 
-Ce fichier est une annexe de comparaison des scenarios operationnels S1, S2 et
-S3 avec les seuls couts explicitement donnes dans l'enonce :
+Ce fichier compare les scenarios de transport avec :
 
-- achat des camions ;
-- entretien annuel ;
-- recette de revente approximative.
+- les achats et ventes de camions ;
+- l'entretien annuel ;
+- le cout du trajet, compose ici du cout kilometrique et du cout chauffeur ;
+- la devalorisation des camions dans la recette de revente.
 
-Il ne constitue pas une fonction objectif complete avec cout kilometrique. Le
-scenario **S3 hybride** reste le scenario principal retenu pour le modele de
-flotte.
+Tous les montants sont pris **HTVA**. Les peages et la redevance kilometrique
+belge sont ignores dans le modele.
 
-On ne tient donc pas encore compte :
+---
 
-- du prix au kilometre ;
-- du carburant ;
-- des chauffeurs ;
-- des peages ;
-- du cout d'immobilisation pendant les changements de compartiment ;
-- d'un taux d'actualisation inter-annuel.
-
-Ces elements sont des extensions possibles.
-
-## Couts donnes dans l'enonce et hypotheses retenues
+## Parametres de cout retenus
 
 | Element | Valeur |
 |---|---:|
 | Achat camion type 1 | 140000 euros |
 | Achat camion type 2 | 200000 euros |
 | Entretien annuel par camion | 5000 euros/an |
-| Revente camion | `C / (1 + alpha)^n` |
+| Cout kilometrique hors peage | 0,60 euros/km |
+| Cout chauffeur | 35 euros/h |
+| Temps de travail | 9 h/jour/camion |
+| Jours ouvrables | 250 jours/an |
+| Taux d'amortissement `alpha` | 0,20 |
+| Peage / Viapass | 0 euro/km |
 
-Pour le modele principal, on retient :
+Le cout chauffeur s'applique a tout le temps de travail :
 
-```math
-\alpha = 0,25
-```
+- conduite ;
+- livraison acide ;
+- chargement de base a Anvers ;
+- dechargement de base a Liege ;
+- rechargement a Liege avant une deuxieme tournee.
 
-L'age initial des camions est suppose nul au debut de l'horizon. Dans cette
-convention, l'annee de vente `t` est interpretee comme l'age moyen du camion
-vendu en fin d'annee `t`.
-
-Le modele principal utilise donc le prix moyen de revente :
-
-```math
-\bar C^{vente}_{k,t} = \frac{C_k}{(1+\alpha)^t}
-```
-
-Avec `alpha = 0,25` :
+Donc un camion mobilise :
 
 ```math
-\bar C^{vente}_{1,t} = \frac{140000}{1,25^t}
+35 \times 9 \times 250 = 78750 \text{ euros/an}
+```
+
+---
+
+## Justification de `alpha`
+
+L'enonce impose la formule de revente :
+
+```math
+C^{vente}_{k,n} = \frac{C_k}{(1+\alpha)^n}
+```
+
+mais ne fixe pas `alpha`. On retient :
+
+```math
+\alpha = 0,20
+```
+
+Cette valeur est une approximation simple et proche du contexte :
+
+- le CNR observe, pour le transport routier belge, que les transporteurs
+  conservent les tracteurs environ 7 ans en moyenne, avec des contrats de leasing
+  souvent centres autour de 60 mois
+  ([CNR, transport routier belge 2021](https://www.cnr.fr/download/file/publications/CNR%20-%20Le%20transport%20routier%20de%20marchandises%20belge%20-%202021%20.pdf)) ;
+- en Belgique, les vehicules professionnels sont souvent amortis sur 5 ans, soit
+  20 %/an en lineaire
+  ([myfid, amortissement Belgique](https://www.myfid.be/ressources/fiscalite/amortissement/)).
+
+Avec la formule de l'enonce :
+
+```math
+\frac{1}{1,20^5} \approx 0,40
+\qquad
+\frac{1}{1,20^7} \approx 0,28
+```
+
+Un camion garde donc environ 40 % de sa valeur apres 5 ans et 28 % apres 7 ans.
+
+---
+
+## Fonction de cout
+
+La fonction economique sur 5 ans est :
+
+```math
+\min Z =
+\sum_{t,k} C^{achat}_k A_{k,t}
++ \sum_{t,k} C^{entretien} N_{k,t}
++ \sum_t C^{trajet}_t
+- \sum_{k,s,t} \frac{C^{achat}_k}{(1+\alpha)^{t-s}} V_{k,s,t}
+```
+
+avec :
+
+```math
+C^{trajet}_t = C^{km}_t + C^{chauffeur}_t
 ```
 
 ```math
-\bar C^{vente}_{2,t} = \frac{200000}{1,25^t}
+C^{km}_t = 0,60 \times D^{annuel}_t
 ```
 
-| Annee de vente t | Revente type 1 | Revente type 2 |
-|---:|---:|---:|
-| 1 | 112000 euros | 160000 euros |
-| 2 | 89600 euros | 128000 euros |
-| 3 | 71680 euros | 102400 euros |
-| 4 | 57344 euros | 81920 euros |
-| 5 | 45875,20 euros | 65536 euros |
+```math
+C^{chauffeur}_t = 35 \times 9 \times 250 \times (N_{1,t}+N_{2,t})
+```
 
-On ne suit pas les cohortes detaillees dans le modele principal. Ce suivi reste
-une extension possible. Une sensibilite sur
-`alpha ∈ {0,15 ; 0,25 ; 0,35}` pourra etre faite plus tard.
+La devalorisation n'est donc pas un cout ajoute automatiquement chaque annee.
+Elle intervient dans la recette de vente : plus `alpha` ou l'age `n` est grand,
+plus la recette de vente est faible.
+
+---
 
 ## Flotte initiale
-
-La flotte initiale donnee dans l'enonce est :
 
 ```math
 N^0_1 = 4
@@ -81,127 +120,212 @@ N^0_1 = 4
 N^0_2 = 6
 ```
 
-## Flottes demandees par les scenarios
+Avec la convention 9 h/jour, le fichier `test_annuel.md` montre
+que le scenario 3 est faisable avec cette flotte initiale :
 
-Les besoins de flotte proviennent du fichier `tests_bases_couplage_anvers.md`.
+```math
+N_1 = 4
+\qquad
+N_2 = 6
+```
 
-| Scenario | Type 1 demande | Type 2 demande | Total camions | Statut |
+Il n'est donc plus necessaire d'acheter un camion type 1 supplementaire.
+
+---
+
+## Scenarios disponibles
+
+| Scenario | Type 1 | Type 2 | Total | Lecture |
 |---|---:|---:|---:|---|
-| Scenario 1 | 10 | 3 | 13 | comparaison |
-| Scenario 2 | 4 | 7 | 11 | comparaison |
-| **Scenario 3** | **5** | **6** | **11** | **scenario principal** |
+| S1 | 7 | 3 | 10 | garder Anvers dans les tournees acide |
+| S2 | 4 | 7 | 11 | retirer Anvers des tournees acide |
+| S3 | 4 | 6 | 10 | hybride journalier |
+| S4 | 4 | 6 | 10 | hybride annuel avec affectation stable |
 
-## Achats et ventes necessaires
+Distances moyennes corrigees :
 
-On compare chaque scenario a la flotte initiale.
+| Annee | S1 | S2 | S3 | S4 |
+|---:|---:|---:|---:|---:|
+| 1 | 3181,4 km/j | 2793,6 km/j | 2761,4 km/j | 2748,8 km/j |
+| 2 | 3183,3 km/j | 2839,2 km/j | 2763,3 km/j | 2750,7 km/j |
+| 3-5 | 3185 km/j | 2880 km/j | 2765 km/j | 2752,4 km/j |
 
-```math
-A_{k,s} = \max(0, N_{k,s} - N^0_k)
-```
+---
 
-```math
-R_{k,s} = \max(0, N^0_k - N_{k,s})
-```
+## Cout de changement initial
 
-| Scenario | Achat T1 | Achat T2 | Vente T1 | Vente T2 |
-|---|---:|---:|---:|---:|
-| Scenario 1 | 6 | 0 | 0 | 3 |
-| Scenario 2 | 0 | 1 | 0 | 0 |
-| Scenario 3 | 1 | 0 | 0 | 0 |
+On compare chaque scenario a la flotte initiale `4 T1 + 6 T2`.
 
-## Cout d'achat
+Avec `alpha = 0,20`, la revente d'un camion type 2 apres 1 an vaut :
 
 ```math
-C^{achat}_s = 140000 A_{1,s} + 200000 A_{2,s}
+\frac{200000}{1,20} \approx 166667
 ```
 
-| Scenario | Calcul | Cout d'achat |
-|---|---|---:|
-| Scenario 1 | `6 x 140000` | 840000 euros |
-| Scenario 2 | `1 x 200000` | 200000 euros |
-| Scenario 3 | `1 x 140000` | 140000 euros |
-
-## Entretien annuel
-
-```math
-C^{entretien}_s = 5000 (N_{1,s} + N_{2,s})
-```
-
-| Scenario | Nombre de camions | Entretien annuel |
-|---|---:|---:|
-| Scenario 1 | 13 | 65000 euros/an |
-| Scenario 2 | 11 | 55000 euros/an |
-| Scenario 3 | 11 | 55000 euros/an |
-
-## Recette de revente
-
-Dans cette comparaison de premiere annee, la seule revente apparait dans le
-scenario 1 : on revend 3 camions type 2 en fin d'annee 1.
-
-Avec `alpha = 0,25` et l'annee de vente `t = 1` :
-
-```math
-Recette^{vente}_1 = 3 \times \frac{200000}{1,25} = 480000
-```
-
-Pour les scenarios 2 et 3 :
-
-```math
-Recette^{vente}_2 = Recette^{vente}_3 = 0
-```
-
-## Cout net de changement de flotte
-
-```math
-C^{changement}_s = C^{achat}_s - Recette^{vente}_s
-```
-
-| Scenario | Cout d'achat | Recette de revente | Cout net de changement |
+| Scenario | Achats | Ventes | Cout net de changement |
 |---|---:|---:|---:|
-| Scenario 1 | 840000 | 480000 | 360000 euros |
-| Scenario 2 | 200000 | 0 | 200000 euros |
-| Scenario 3 | 140000 | 0 | 140000 euros |
+| S1 | `3 T1 = 420000` | `3 T2 ≈ 500000` | -80000 euros |
+| S2 | `1 T2 = 200000` | 0 | 200000 euros |
+| S3 | 0 | 0 | 0 euro |
+| S4 | 0 | 0 | 0 euro |
 
-## Cout explicite de la premiere annee
+Le cout net negatif de S1 signifie qu'on recupere plus en vendant 3 camions type
+2 qu'on ne depense pour acheter 3 camions type 1. Mais S1 parcourt beaucoup plus
+de kilometres.
 
-On additionne ici :
+---
+
+## Cout annuel par scenario
+
+On additionne :
 
 ```math
-cout explicite annee 1 = cout net de changement + entretien annuel
+C^{annuel}_{s,t}
+= C^{entretien}_s
++ C^{chauffeur}_s
++ C^{km}_{s,t}
 ```
 
-| Scenario | Cout net changement | Entretien annuel | Cout explicite annee 1 |
+| Annee | S1 | S2 | S3 | S4 |
+|---:|---:|---:|---:|---:|
+| 1 | 1314710 euros | 1340290 euros | 1251710 euros | 1249820 euros |
+| 2 | 1314995 euros | 1347130 euros | 1251995 euros | 1250105 euros |
+| 3 | 1315250 euros | 1353250 euros | 1252250 euros | 1250360 euros |
+| 4 | 1315250 euros | 1353250 euros | 1252250 euros | 1250360 euros |
+| 5 | 1315250 euros | 1353250 euros | 1252250 euros | 1250360 euros |
+
+---
+
+## Cout total sur 5 ans par scenario fixe
+
+Sans actualisation et sans liquidation finale de la flotte :
+
+```math
+C^{total}_s =
+C^{changement}_s
++ \sum_{t=1}^{5} C^{annuel}_{s,t}
+```
+
+| Scenario | Cout changement | Somme couts annuels | Cout total 5 ans |
 |---|---:|---:|---:|
-| Scenario 1 | 360000 | 65000 | 425000 euros |
-| Scenario 2 | 200000 | 55000 | 255000 euros |
-| Scenario 3 | 140000 | 55000 | 195000 euros |
+| S1 | -80000 | 6575455 | 6495455 euros |
+| S2 | 200000 | 6747170 | 6947170 euros |
+| S3 | 0 | 6260455 | 6260455 euros |
+| S4 | 0 | 6251005 | 6251005 euros |
 
-## Tableau comparatif
+---
 
-| Critere | Scenario 1 | Scenario 2 | Scenario 3 | Meilleur |
-|---|---:|---:|---:|---|
-| Achat initial | 840000 | 200000 | 140000 | S3 |
-| Entretien annuel | 65000 | 55000 | 55000 | S2/S3 |
-| Revente estimee | 480000 | 0 | 0 | S1 |
-| Cout changement | 360000 | 200000 | 140000 | S3 |
-| Cout explicite annee 1 | 425000 | 255000 | 195000 | S3 |
+## Proposition 1 - Ne pas changer la flotte, garder S3
 
-## Lecture
-
-Avec les seuls couts explicites de l'enonce et l'hypothese centrale
-`alpha = 0,25`, le scenario 3 est le moins cher pour le changement de flotte et
-pour le cout explicite de premiere annee.
-
-Le scenario 1 recupere une recette de revente, mais il demande beaucoup plus
-d'achats de camions type 1. Cette recette ne suffit pas a compenser l'achat
-initial plus eleve dans l'hypothese principale.
-
-Le scenario 3 est donc coherent avec le choix operationnel retenu : il minimise
-la distance dans le test de couplage et il donne aussi le plus faible cout de
-changement parmi les trois scenarios.
-
-Une extension possible serait d'ajouter un cout kilometrique :
+On conserve la flotte initiale :
 
 ```math
-C^{total}_s = C^{changement}_s + C^{entretien}_s + c_{km} D_s
+4 T1 + 6 T2
 ```
+
+On applique le scenario 3 chaque annee.
+
+Il n'y a ni achat ni vente :
+
+```math
+C^{changement} = 0
+```
+
+Le cout total sur 5 ans est :
+
+```math
+C^{P1} = 6260455 \text{ euros}
+```
+
+---
+
+## Proposition 2 - Autoriser achats/ventes et changer le trajet
+
+On laisse le modele choisir le scenario le moins couteux parmi S1, S2, S3 et S4,
+en tenant compte :
+
+- des achats ;
+- des ventes avec devalorisation ;
+- de l'entretien ;
+- du cout du trajet.
+
+Le meilleur choix est S4 :
+
+```math
+4 T1 + 6 T2
+```
+
+donc la flotte ne change pas. Le gain vient seulement du trajet : S4 planifie la
+base restante sur l'annee et reduit les rotations de base restante de 500 a 485
+par an. Les 3 jours d'immobilisation ne s'appliqueraient que si un compartiment
+etait effectivement converti d'acide vers base ou de base vers acide.
+
+Le cout total sur 5 ans est :
+
+```math
+C^{P2} = 6251005 \text{ euros}
+```
+
+Comparaison :
+
+```math
+C^{P1} - C^{P2}
+= 6260455 - 6251005
+= 9450 \text{ euros}
+```
+
+La proposition 2 est donc meilleure, mais pas parce qu'elle vend ou achete des
+camions. Elle est meilleure parce qu'elle choisit un trajet annuel legerement
+plus court avec la meme flotte.
+
+---
+
+## Effet d'une liquidation finale
+
+Si le PL autorise la vente des camions en fin d'annee 5, alors le solveur vendra
+logiquement tous les camions restants, car il n'y a plus de demande apres
+l'horizon.
+
+Pour S3 et S4, la flotte finale est la meme :
+
+```math
+4 T1 + 6 T2
+```
+
+La valeur residuelle commune vaut :
+
+```math
+4 \times \frac{140000}{1,20^5}
++ 6 \times \frac{200000}{1,20^5}
+\approx 707305 \text{ euros}
+```
+
+Donc :
+
+| Proposition | Cout avant liquidation | Valeur finale | Cout apres liquidation |
+|---|---:|---:|---:|
+| P1 : S3 fixe | 6260455 | 707305 | 5553150 euros |
+| P2 : choix optimal | 6251005 | 707305 | 5543700 euros |
+
+La liquidation finale ne change pas le classement, car les deux propositions
+gardent la meme flotte finale.
+
+---
+
+## Conclusion
+
+Avec la formule complete du cout, la flotte **ne change pas au cours des 5 ans**
+dans la meilleure solution trouvee. Acheter ou vendre des camions ne compense pas
+la hausse du cout de trajet des autres scenarios.
+
+La meilleure strategie est :
+
+```text
+garder 4 T1 + 6 T2 pendant les 5 ans
+utiliser S4 si on accepte la planification annuelle de la base restante
+sinon utiliser S3 comme meilleur scenario journalier strict
+```
+
+La devalorisation est bien prise en compte dans les ventes, mais elle ne pousse
+pas le modele a vendre/racheter, car les scenarios avec changement de flotte ont
+un trajet plus cher ou davantage de camions.
